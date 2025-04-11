@@ -18,8 +18,6 @@ void setup() {
   lc.init(DIN_PIN, CLK_PIN, CS_PIN, SEGMENT_COUNT, false);
   lc.setIntensity(15);  // max brightness
   lc.clearMatrix();
-
-  lc.
 }
 
 void loop() {
