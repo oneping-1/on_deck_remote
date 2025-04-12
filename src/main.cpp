@@ -1,13 +1,19 @@
 #include <Arduino.h>
-#include "LedController.hpp"
 #include <cmath>
+#include <LedController.hpp>
+#include <ESP32Encoder.h>
 
 #define DIN_PIN 12
 #define CLK_PIN 14
 #define CS_PIN 13
-#define SEGMENT_COUNT 1   // Change if you have multiple chained MAX7219 chips
+#define SEGMENT_COUNT 1
 
-LedController lc(DIN_PIN, CLK_PIN, CS_PIN, SEGMENT_COUNT, false);  // software SPI
+#define ENCODER_A 47
+#define ENCODER_B 21
+#define ENCODER_S 48
+
+LedController lc(DIN_PIN, CLK_PIN, CS_PIN, SEGMENT_COUNT, false);
+ESP32Encoder encoder;
 
 byte numberArray[10] = {
   B01111110, // 0 
@@ -24,61 +30,64 @@ byte numberArray[10] = {
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);  // let the serial console catch up
+  delay(1000);
 
-  Serial.println("Starting segment scan test...");
+  Serial.println("Starting encoder debug...");
 
   lc.init(DIN_PIN, CLK_PIN, CS_PIN, SEGMENT_COUNT, false);
-  lc.setIntensity(5);  // max brightness
+  lc.setIntensity(5);
   lc.clearMatrix();
+
+  // Make sure pins are defined as inputs
+  pinMode(ENCODER_A, INPUT_PULLUP);
+  pinMode(ENCODER_B, INPUT_PULLUP);
+
+  encoder.attachFullQuad(ENCODER_A, ENCODER_B);
+  encoder.setCount(0);
 }
 
-void print_number(int8_t num){
-  if (num < 0){
+void print_number(int8_t num) {
+  if (num < 0) {
     lc.setRow(0, 0, B00000001);
-    num = num * -1;
-  }
-  else {
+    num = -num;
+  } else {
     lc.setRow(0, 0, B00000000);
   }
 
   bool leadingZero = false;
-  for (int i = 2; i >= 0; i--){
-    // logic
+  for (int i = 2; i >= 0; i--) {
     int divisor = pow(10, i);
     int8_t digit = num / divisor;
     num %= divisor;
     byte digitArray = numberArray[digit];
 
-    // last digit decimal point
-    if (i == 0){
-      digitArray = digitArray| B10000000;
+    if (i == 0) {
+      digitArray |= B10000000;  // Add decimal point
     }
 
-    // print digits
-    if ((digit == 0) and (!leadingZero) and (i != 0)){
-      lc.setRow(0, 3-i, B00000000);
-    }
-    else if ((digit != 0) and (!leadingZero)){
-      lc.setRow(0, 3-i, digitArray);
-      leadingZero = true;
-    }
-    else{
-      lc.setRow(0, 3-i, digitArray);
+    if ((digit == 0) && (!leadingZero) && (i != 0)) {
+      lc.setRow(0, 3 - i, B00000000);
+    } else {
+      lc.setRow(0, 3 - i, digitArray);
+      if (digit != 0) leadingZero = true;
     }
   }
-  Serial.println();
-
-  // lc.setRow(0, 3, numberArray[num]);
 }
 
 void loop() {
+  static int lastVal = 0;
+  int raw = encoder.getCount();
+  int val = raw / 2;
 
-    // Apply pattern to all 4 digits
-    for (int i = -125; i < 125; i++){
-      print_number(i);
-      Serial.println(i);
-      delay(200);
-    }
+  int a = digitalRead(ENCODER_A);
+  int b = digitalRead(ENCODER_B);
 
+  Serial.printf("Encoder A: %d | B: %d | Raw: %d | Detent: %d\n", a, b, raw, val);
+
+  if (val != lastVal) {
+    print_number(val);
+    lastVal = val;
+  }
+
+  delay(10);
 }
