@@ -12,6 +12,13 @@
 #define ENCODER_B 21
 #define ENCODER_S 48
 
+#define BUTTON_A 38
+#define BUTTON_B 35
+#define BUTTON_C 2
+#define BUTTON_D 36
+#define BUTTON_E 1
+#define BUTTON_F 37
+
 LedController lc(DIN_PIN, CLK_PIN, CS_PIN, SEGMENT_COUNT, false);
 ESP32Encoder encoder;
 
@@ -27,24 +34,6 @@ byte numberArray[10] = {
   B01111111, // 8
   B01111011  // 9
 };
-
-void setup() {
-  Serial.begin(115200);
-  delay(1000);
-
-  Serial.println("Starting encoder debug...");
-
-  lc.init(DIN_PIN, CLK_PIN, CS_PIN, SEGMENT_COUNT, false);
-  lc.setIntensity(5);
-  lc.clearMatrix();
-
-  // Make sure pins are defined as inputs
-  pinMode(ENCODER_A, INPUT_PULLUP);
-  pinMode(ENCODER_B, INPUT_PULLUP);
-
-  encoder.attachFullQuad(ENCODER_A, ENCODER_B);
-  encoder.setCount(0);
-}
 
 void print_number(int8_t num) {
   if (num < 0) {
@@ -74,6 +63,34 @@ void print_number(int8_t num) {
   }
 }
 
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  Serial.println("Starting encoder debug...");
+
+  lc.init(DIN_PIN, CLK_PIN, CS_PIN, SEGMENT_COUNT, false);
+  lc.setIntensity(5);
+  lc.clearMatrix();
+  // print_number(0);y
+
+  // Make sure pins are defined as inputs
+  pinMode(ENCODER_A, INPUT_PULLUP);
+  pinMode(ENCODER_B, INPUT_PULLUP);
+  pinMode(ENCODER_S, INPUT);
+
+  pinMode(BUTTON_A, INPUT);
+  pinMode(BUTTON_B, INPUT);
+  pinMode(BUTTON_C, INPUT);
+  pinMode(BUTTON_D, INPUT);
+  pinMode(BUTTON_E, INPUT);
+  pinMode(BUTTON_F, INPUT);
+
+  encoder.attachFullQuad(ENCODER_B, ENCODER_A);
+  encoder.setCount(0);
+}
+
 void loop() {
   static int lastVal = 0;
   int raw = encoder.getCount();
@@ -81,13 +98,40 @@ void loop() {
 
   int a = digitalRead(ENCODER_A);
   int b = digitalRead(ENCODER_B);
+  int s = digitalRead(ENCODER_S);
 
-  Serial.printf("Encoder A: %d | B: %d | Raw: %d | Detent: %d\n", a, b, raw, val);
+  int A = digitalRead(BUTTON_A);
+  int B = digitalRead(BUTTON_B);
+  int C = digitalRead(BUTTON_C);
+  int D = digitalRead(BUTTON_D);
+  int E = digitalRead(BUTTON_E);
+  int F = digitalRead(BUTTON_F);
 
-  if (val != lastVal) {
-    print_number(val);
-    lastVal = val;
+  if (A == 0){
+    val += 3;
   }
+
+  if (B == 0){
+    val -= 3;
+  }
+
+  if (C == 0){
+    val += 2;
+  }
+
+  if (D == 0){
+    val -= 2;
+  }
+
+  if (E == 0){
+    val += 1;
+  }
+
+  if (F == 0){
+    val -= 1;
+  }
+
+  print_number(val);
 
   delay(10);
 }
