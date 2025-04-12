@@ -44,20 +44,27 @@ void print_number(int8_t num){
 
   bool leadingZero = false;
   for (int i = 2; i >= 0; i--){
+    // logic
     int divisor = pow(10, i);
     int8_t digit = num / divisor;
     num %= divisor;
-    // lc.setDigit(0, 4-i, numberArray[digit], false);
-    Serial.println(i, digit);
-    if ((digit == 0) and (!leadingZero)){
+    byte digitArray = numberArray[digit];
+
+    // last digit decimal point
+    if (i == 0){
+      digitArray = digitArray| B10000000;
+    }
+
+    // print digits
+    if ((digit == 0) and (!leadingZero) and (i != 0)){
       lc.setRow(0, 3-i, B00000000);
     }
     else if ((digit != 0) and (!leadingZero)){
-      lc.setRow(0, 3-i, numberArray[digit]);
+      lc.setRow(0, 3-i, digitArray);
       leadingZero = true;
     }
     else{
-      lc.setRow(0, 3-i, numberArray[digit]);
+      lc.setRow(0, 3-i, digitArray);
     }
   }
   Serial.println();
@@ -71,7 +78,7 @@ void loop() {
     for (int i = -125; i < 125; i++){
       print_number(i);
       Serial.println(i);
-      delay(50);
+      delay(200);
     }
 
 }
