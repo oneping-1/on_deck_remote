@@ -1,8 +1,8 @@
 #include <Arduino.h>
-#include <cmath>
-
+#include <ArduinoJson.h>
 
 #include <LedController.hpp>
+#include <cmath>
 #define DIN_PIN 12
 #define CLK_PIN 14
 #define CS_PIN 13
@@ -22,11 +22,10 @@ ESP32Encoder encoder;
 #define BUTTON_E 1
 #define BUTTON_F 37
 
-#include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFi.h>
 const char* ssid = "corn";
 const char* password = "Indy500!";
-
 
 byte numberArray[10] = {
     B01111110,  // 0
@@ -41,7 +40,14 @@ byte numberArray[10] = {
     B01111011   // 9
 };
 
-void print_number(int8_t num) {
+uint8_t activeButton = 4;
+uint8_t activeValue = 0;
+uint8_t minValue = 255;
+uint8_t maxValue = 0;
+uint8_t newValue = -1;
+String url = "http://192.168.1.90/settings";
+
+void printNumber(uint8_t num) {
   if (num < 0) {
     lc.setRow(0, 0, B00000001);
     num = -num;
@@ -71,12 +77,73 @@ void print_number(int8_t num) {
   }
 }
 
+int retrieveSetting(String setting) {
+
+  HTTPClient http;
+  http.begin(url);
+  int httpCode = http.GET();
+
+  if (httpCode == 200) {
+    String payload = http.getString();
+    StaticJsonDocument<256> doc;
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (!error) {
+      if (doc.containsKey(setting)) {
+        String value = doc[setting].as<String>();
+
+        // Example: convert known string values to ints
+        if (setting == "mode") {
+          if (value == "overview") return 0;
+          if (value == "gamecast") return 1;
+        }
+
+        // For other settings that are already numeric, just return them
+        if (doc[setting].is<int>()) {
+          return doc[setting].as<int>();
+        }
+      }
+    } else {
+      Serial.print("JSON parse failed: ");
+      Serial.println(error.f_str());
+    }
+  } else {
+    Serial.print("HTTP GET failed with code: ");
+    Serial.println(httpCode);
+  }
+
+  http.end();
+  return -1;  // default/error fallback
+}
+
+void setSetting(){
+  if (activeButton == 4){
+    return;
+  }
+
+  HTTPClient http;
+  String option = "";
+  if (activeButton == 0){
+    option = "?mode=";
+  } else if (activeButton == 1){
+    option = "?brightness=";
+  } else if (activeButton == 2) {
+    option = "?gamecast_id=";
+  } else if (activeButton == 3) {
+    option = "?delay=";
+  }
+  String finalUrl = url + option + String(activeValue);
+  Serial.println(finalUrl);
+  http.begin(finalUrl);
+  int httpCode = http.GET();
+}
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
 
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED){
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
@@ -101,13 +168,27 @@ void setup() {
   encoder.attachFullQuad(ENCODER_B, ENCODER_A);
   encoder.setCount(0);
 
-  print_number(0);
+  lc.setRow(0, 3, B10000000);
 }
 
 void loop() {
   static int lastVal = 0;
   int raw = encoder.getCount();
   int val = raw / 2;
+  newValue = val;
+  
+  if ((activeValue != newValue) and (newValue >= minValue) and (newValue <= maxValue)){
+    activeValue = newValue;
+    printNumber(activeValue);
+  }
+  else {
+    encoder.setCount(activeValue * 2);
+    Serial.println(newValue);
+    Serial.println(minValue);
+    Serial.println(maxValue);
+    Serial.println();
+  }
+  
 
   int a = digitalRead(ENCODER_A);
   int b = digitalRead(ENCODER_B);
@@ -120,29 +201,58 @@ void loop() {
   int E = digitalRead(BUTTON_E);
   int F = digitalRead(BUTTON_F);
 
-  if (val != lastVal) {
-    print_number(val);
-    lastVal = val;
+  if (A == 0) {
+    activeButton = 0;
+    activeValue = retrieveSetting("mode");
+    encoder.setCount(activeValue * 2);
+    printNumber(activeValue);
+    minValue = 0;
+    maxValue = 1;
   }
 
-  // Serial.println(s);
-  // Serial.println(A);
-  // Serial.println(B);
-  // Serial.println(C);
-  // Serial.println(D);
-  // Serial.println(E);
-  Serial.println(F);
-  
-  if ((F == 0) and (val >= 0) and (val <= 3)){
-    HTTPClient http;
-    String url = "http://192.168.1.90/settings?brightness=" + String(val);
-    http.begin(url);
-    int httpCode = http.GET();
-    Serial.println(url);
-    Serial.println(httpCode);
-    http.end();
+  if (B == 0) {
+    activeButton = 1;
+    activeValue = retrieveSetting("brightness");
+    encoder.setCount(activeValue * 2);
+    printNumber(activeValue);
+    minValue = 0;
+    maxValue = 3;
   }
-  
-  Serial.println();
+
+  if (C == 0) {
+    activeButton = 2;
+    activeValue = retrieveSetting("gamecast_id");
+    encoder.setCount(activeValue * 2);
+    printNumber(activeValue);
+    minValue = 0;
+    maxValue = 20;
+  }
+
+  if (D == 0) {
+    activeButton = 3;
+    activeValue = retrieveSetting("delay");
+    encoder.setCount(activeValue * 2);
+    printNumber(activeValue);
+    minValue = 0;
+    maxValue = 254;
+  }
+
+  if (E == 0) {
+    activeButton = 4;
+    Serial.println("Button E");
+    for (int i = 0; i < 4; i++){
+      lc.setRow(0, i, B00000000);
+    }
+    lc.setRow(0, 3, B10000000);
+    minValue = 255;
+    maxValue = 0;
+  }
+
+  if (F == 0) {
+    // activateButton = 5;
+    setSetting();
+  }
+
+  // Serial.println();
   delay(50);
 }
