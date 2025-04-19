@@ -24,8 +24,7 @@ ESP32Encoder encoder;
 
 #include <HTTPClient.h>
 #include <WiFi.h>
-const char* ssid = "corn";
-const char* password = "Indy500!";
+#include <WiFiManager.h>
 
 byte numberArray[10] = {
     B01111110,  // 0
@@ -142,7 +141,16 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  WiFi.begin(ssid, password);
+  WiFiManager wm;
+  wm.setConfigPortalTimeout(120);
+
+  if (!wm.startConfigPortal("OnDemandAP")){
+    Serial.println("falied to connect to wifi");
+    delay(3000);
+    ESP.restart();
+    delay(5000);
+  }
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -176,7 +184,7 @@ void loop() {
   int raw = encoder.getCount();
   int val = raw / 2;
   newValue = val;
-  
+
   if ((activeValue != newValue) and (newValue >= minValue) and (newValue <= maxValue)){
     activeValue = newValue;
     printNumber(activeValue);
@@ -188,7 +196,7 @@ void loop() {
     Serial.println(maxValue);
     Serial.println();
   }
-  
+
 
   int a = digitalRead(ENCODER_A);
   int b = digitalRead(ENCODER_B);
@@ -225,7 +233,7 @@ void loop() {
     encoder.setCount(activeValue * 2);
     printNumber(activeValue);
     minValue = 0;
-    maxValue = 20;
+    maxValue = retrieveSetting("num_games")-1;
   }
 
   if (D == 0) {
