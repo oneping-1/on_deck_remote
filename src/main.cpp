@@ -141,10 +141,17 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  WiFiManager wm;
-  wm.setConfigPortalTimeout(120);
+  lc.init(DIN_PIN, CLK_PIN, CS_PIN, SEGMENT_COUNT, false);
+  lc.setIntensity(15);
+  lc.clearMatrix();
+  for (int i = 0; i < 4; i++){
+    lc.setRow(0, i, B10000000);
+  }
 
-  if (!wm.startConfigPortal("OnDemandAP")){
+  WiFiManager wm;
+  bool res = wm.autoConnect("on_deck remote");
+
+  if (!res){
     Serial.println("falied to connect to wifi");
     delay(3000);
     ESP.restart();
@@ -156,10 +163,6 @@ void setup() {
     Serial.print(".");
   }
   Serial.println("Connected");
-
-  lc.init(DIN_PIN, CLK_PIN, CS_PIN, SEGMENT_COUNT, false);
-  lc.setIntensity(15);
-  lc.clearMatrix();
 
   // Make sure pins are defined as inputs
   pinMode(ENCODER_A, INPUT_PULLUP);
@@ -176,7 +179,9 @@ void setup() {
   encoder.attachFullQuad(ENCODER_B, ENCODER_A);
   encoder.setCount(0);
 
-  lc.setRow(0, 3, B10000000);
+  for (int i = 0; i < 3; i++){
+    lc.setRow(0, i, 0);
+  }
 }
 
 void loop() {
